@@ -14,14 +14,27 @@
 <body>
 
 <div id='map'></div>
+
+
+<div id='legend' style='display:none;'>
+    <p>
+        Hello this is a legend
+    </p>
+  </div>
 <script>
 mapboxgl.accessToken = 'pk.eyJ1IjoiZmVpc2FscmFtcmEiLCJhIjoiY2ozbjE5NmpiMDAwNTMzbnliM2RoNTRvYyJ9.04NkJGt6hq6i3uOsgs3gUg';
 var map = new mapboxgl.Map({
     container: 'map', // container id
-    style: 'mapbox://styles/mapbox/streets-v9', // stylesheet location
-    center: [-74.50, 40], // starting position [lng, lat]
-    zoom: 9 // starting zoom
+    style: 'mapbox://styles/feisalramra/cjlj8jixj0f992spj04ar6zu8', // 'mapbox://styles/mapbox/streets-v9', // stylesheet location
+    center: [39.19149398803711  ,  -6.164619619772165], // starting position [lng, lat]
+    zoom: 10.5 // starting zoom
 });
+
+
+// Add zoom and rotation controls to the map. 
+map.addControl(new mapboxgl.NavigationControl());
+
+map.legendControl.addLegend(document.getElementById('legend').innerHTML);
 </script>
 
 </body>
