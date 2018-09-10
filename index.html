@@ -11,32 +11,200 @@
         #map { position:absolute; top:0; bottom:0; width:100%; }
     </style>
 </head>
+
 <body>
-
-<div id='map'></div>
-
-
-<div id='legend' style='display:none;'>
-    <p>
-        Hello this is a legend
-    </p>
-  </div>
-<script>
-mapboxgl.accessToken = 'pk.eyJ1IjoiZmVpc2FscmFtcmEiLCJhIjoiY2ozbjE5NmpiMDAwNTMzbnliM2RoNTRvYyJ9.04NkJGt6hq6i3uOsgs3gUg';
-var map = new mapboxgl.Map({
-    container: 'map', // container id
-    style: 'mapbox://styles/feisalramra/cjlj8jixj0f992spj04ar6zu8', // 'mapbox://styles/mapbox/streets-v9', // stylesheet location
-    center: [39.19149398803711  ,  -6.164619619772165], // starting position [lng, lat]
-    zoom: 10.5 // starting zoom
-});
+    <style>
+        .legend label,
+        .legend span {
+            display: block;
+            float: left;
+            height: 15px;
+            width: 20%;
+            text-align: center;
+            font-size: 9px;
+            color: #808080;
+        }
+    </style>
 
 
-// Add zoom and rotation controls to the map. 
-map.addControl(new mapboxgl.NavigationControl());
+    <div id='legend' style='display:none;'>
+        <strong>Legend </strong>
+        <nav class='legend clearfix'>
+            <span style='background:#74f637;'></span>
+            <span style='background:#f77626;'></span>
+            <span style='background:#058f3c;'></span>
+            <label>Mangroves</label>
+            <label>Cofma High Protection</label>
+            <label>Goverment Forests</label>
+    </div>
 
-map.legendControl.addLegend(document.getElementById('legend').innerHTML);
-</script>
+    <div id='map'></div>
+
+    <script>
+  mapboxgl.accessToken =
+            'pk.eyJ1IjoiaWJyYWtoYWxpZCIsImEiOiJjamxjNGFjOTAzZ244M3ZxeXMycTljcG1zIn0.174XiMqxg9uMkqYMRCOXig';
+
+        var bounds = [
+            [37.88, -7.231], // Southwest coordinates
+            [40.56, -4.69] // Northeast coordinates
+        ];
+
+        var map = new mapboxgl.Map({
+            container: 'map', // container id
+            style: 'mapbox://styles/ibrakhalid/cjlkidw2e34uc2sqq3rxmxg2k?fresh=true', // stylesheet location
+            center: [39.21, -6.165], // starting position [lng, lat]
+            zoom: 9, // starting zoom
+            maxBounds: bounds // Sets bounds as max
+        });
+
+
+        map.on('load', function () {
+            // Add a new source from our GeoJSON data and set the
+            // 'cluster' option to true. GL-JS will add the point_count property to your source data.
+            map.addSource("earthquakes", {
+                type: "geojson",
+                // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+                // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+                data: "https://raw.githubusercontent.com/feisalramar/zmi-mapbox-landuse/master/map.geojson",
+                cluster: true,
+                clusterMaxZoom: 14, // Max zoom to cluster points on
+                clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+            });
+
+            map.addLayer({
+                id: "clusters",
+                type: "circle",
+                source: "earthquakes",
+                filter: ["has", "point_count"],
+                paint: {
+                    // Use step expressions (https://www.mapbox.com/mapbox-gl-js/style-spec/#expressions-step)
+                    // with three steps to implement three types of circles:
+                    //   * Blue, 20px circles when point count is less than 100
+                    //   * Yellow, 30px circles when point count is between 100 and 750
+                    //   * Pink, 40px circles when point count is greater than or equal to 750
+                    "circle-color": [
+                        "step",
+                        ["get", "point_count"],
+                        "#51bbd6",
+                        50,
+                        "#f1f075",
+                        100,
+                        "#f28cb1",
+
+                    ],
+                    "circle-radius": [
+                        "step",
+                        ["get", "point_count"],
+                        20,
+                        100,
+                        30,
+                        750,
+                        40
+                    ]
+                }
+            });
+
+            map.addLayer({
+                id: "cluster-count",
+                type: "symbol",
+                source: "earthquakes",
+                filter: ["has", "point_count"],
+                layout: {
+                    "text-field": "{point_count_abbreviated}",
+                    "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                    "text-size": 12
+                }
+            });
+
+            map.addLayer({
+                id: "unclustered-point",
+                type: "circle",
+                source: "earthquakes",
+                filter: ["!", ["has", "point_count"]],
+                paint: {
+                    "circle-color": "#000000",
+                    "circle-radius": 6,
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": "#fff"
+                }
+            });
+
+            // inspect a cluster on click
+            map.on('click', 'clusters', function (e) {
+                var features = map.queryRenderedFeatures(e.point, {
+                    layers: ['clusters']
+                });
+                var clusterId = features[0].properties.cluster_id;
+
+                map.getSource('earthquakes').getClusterExpansionZoom(clusterId, function (err, zoom) {
+                    if (err)
+                        return;
+
+                    map.easeTo({
+                        center: features[0].geometry.coordinates,
+                        zoom: zoom
+                    });
+                });
+            });
+
+
+            map.on('click', 'unclustered-point', function (e) {
+
+                var features = map.queryRenderedFeatures(e.point, {
+                    layers: ['unclustered-point']
+                });
+                var point = features[0].properties.common_nam;
+                var coords = [features[0].properties.longitude, features[0].properties.latitude];
+
+                new mapboxgl.Popup()
+                    .setLngLat(coords)
+                    .setHTML("<h4><b>Common Name</b> : " + point + "<h4>")
+                    .addTo(map);
+
+            });
+
+            map.on('mouseenter', 'clusters', function () {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'clusters', function () {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('mouseenter', 'unclustered-point', function () {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'unclustered-point', function () {
+                map.getCanvas().style.cursor = '';
+            });
+        });
+
+        // Add zoom and rotation controls to the map.
+        map.addControl(new mapboxgl.NavigationControl());
+        map.addControl(new mapboxgl.FullscreenControl());
+
+
+        class MyCustomControl {
+            onAdd(map) {
+                this.map = map;
+                this.container = document.createElement('div');
+                this.container.className = 'my-custom-control';
+                this.container.textContent = 'My custom control';
+                return this.container;
+            }
+            onRemove() {
+                this.container.parentNode.removeChild(this.container);
+                this.map = undefined;
+            }
+        }
+
+        // const myCustomControl = new MyCustomControl();
+
+        map.addControl(myCustomControl);
+
+        var stateLegendEl = document.getElementById('state-legend');
+        var countyLegendEl = document.getElementById('county-legend');
+    </script>
 
 </body>
-</html>
 
+</html>
